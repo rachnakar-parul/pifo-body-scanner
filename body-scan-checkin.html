@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Breathe & Scan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/4.0.11/dexie.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Karla:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0e1010; --surface:#171a1a; --border:#262b2b;
+  --text:#dedad2; --dim:#7a7670; --faint:#333030; --cream:#f2ede4;
+  --breath:#5ec98f; --gold:#e4b245; --gold-bg:rgba(228,178,69,0.15);
+  --green:#5ec98f; --green-bg:rgba(94,201,143,0.16);
+  --yellow:#e4b245; --yellow-bg:rgba(228,178,69,0.14);
+  --red:#dc6f64; --red-bg:rgba(220,111,100,0.15);
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Karla',sans-serif; --r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+body{font-family:var(--sans);font-weight:300;font-size:15px;line-height:1.5}
+
+/* ── Shell ── */
+#app{height:100%;max-width:480px;margin:0 auto;position:relative;overflow:hidden}
+
+/* ── Particles (permanent layer) ── */
+#particles{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.particle{position:absolute;border-radius:50%;background:var(--breath);opacity:0;animation:floatUp linear infinite;filter:blur(1px)}
+@keyframes floatUp{
+  0%{opacity:0;transform:translateY(0) scale(0.5)}
+  12%{opacity:0.35}70%{opacity:0.18}
+  100%{opacity:0;transform:translateY(-105vh) scale(1)}
+}
+
+/* ── +1 pop (permanent layer) ── */
+#pop{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%) scale(0);
+  font-family:var(--serif);font-size:90px;font-weight:300;color:var(--gold);
+  pointer-events:none;z-index:50;opacity:0;
+  text-shadow:0 0 60px rgba(228,178,69,0.6),0 0 120px rgba(228,178,69,0.3)}
+#pop.fire{animation:popBoom 1.6s cubic-bezier(0.2,0.8,0.3,1) forwards}
+@keyframes popBoom{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.2)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
+  35%{transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-75%) scale(0.85)}
+}
+
+/* ── Content area (swapped on each slide) ── */
+#content{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column}
+
+/* ── Top bar ── */
+.topbar{padding:14px 20px 10px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.topbar-title{font-family:var(--serif);font-weight:300;font-size:15px;font-style:italic;color:var(--dim)}
+.streak-pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;
+  color:var(--gold);background:var(--gold-bg);padding:5px 14px;border-radius:20px;
+  border:1px solid rgba(228,178,69,0.2)}
+.counter{font-size:13px;color:var(--dim);letter-spacing:0.5px}
+
+/* ── Progress: 13 tiny circles, only color changes ── */
+.pips{display:flex;gap:6px;padding:0 20px 12px;flex-shrink:0;justify-content:center}
+.pip{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--faint)}
+.pip-done{background:var(--breath)}
+.pip-now{background:var(--breath);opacity:0.4}
+
+/* ── Main scrollable area ── */
+.main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;align-items:center;padding:8px 24px 110px}
+.main::-webkit-scrollbar{width:0}
+
+/* ── Breathing orb ── */
+.bc{position:relative;width:240px;height:240px;margin:8px 0 18px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;cursor:pointer}
+#orb{width:160px;height:160px;border-radius:50%;background:rgba(94,201,143,0.18);
+  box-shadow:0 0 50px rgba(94,201,143,0.12),0 0 100px rgba(94,201,143,0.06)}
+.bc-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;pointer-events:none}
+.bc-phase{font-family:var(--serif);font-size:15px;font-style:italic;color:var(--dim);min-height:24px}
+.bc-num{font-family:var(--serif);font-size:56px;font-weight:300;color:var(--breath);line-height:1}
+
+.tap-hint{position:absolute;inset:calc(50% - 80px) calc(50% - 80px);width:160px;height:160px;
+  border-radius:50%;border:2px dashed rgba(94,201,143,0.25);animation:tapPulse 2s ease-in-out infinite;pointer-events:none}
+@keyframes tapPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.3;transform:scale(1.06)}}
+
+/* ── Body part name ── */
+.pname{font-family:var(--serif);font-weight:300;font-size:36px;color:var(--cream);text-align:center;margin-bottom:4px}
+.pname-pulse{animation:namePulse 4s ease-in-out}
+@keyframes namePulse{0%,100%{opacity:1}50%{opacity:0.45}}
+.pcue{font-size:14px;color:var(--dim);text-align:center;font-style:italic;min-height:22px;margin-bottom:20px}
+
+/* ── Response panel ── */
+.rpanel{width:100%;opacity:0;transform:translateY(28px);transition:all 0.55s cubic-bezier(0.25,0.46,0.45,0.94);pointer-events:none}
+.rpanel-vis{opacity:1;transform:translateY(0);pointer-events:all}
+.srow{display:flex;gap:10px;margin-bottom:16px}
+.sbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px;
+  border:1.5px solid var(--faint);border-radius:var(--r);background:transparent;
+  font-family:var(--sans);font-size:13px;font-weight:400;color:var(--dim);cursor:pointer;transition:all 0.25s}
+.sbtn:active{transform:scale(0.95)}
+.sdot{width:28px;height:28px;border-radius:50%;transition:transform 0.3s,box-shadow 0.3s}
+.sbtn[data-v="good"] .sdot{background:var(--green)}
+.sbtn[data-v="needs_attention"] .sdot{background:var(--yellow)}
+.sbtn[data-v="urgent"] .sdot{background:var(--red)}
+.sbtn-on{border-color:transparent}
+.sbtn-on[data-v="good"]{background:var(--green-bg);color:var(--green);border-color:rgba(94,201,143,0.35)}
+.sbtn-on[data-v="good"] .sdot{transform:scale(1.25);box-shadow:0 0 20px rgba(94,201,143,0.5)}
+.sbtn-on[data-v="needs_attention"]{background:var(--yellow-bg);color:var(--yellow);border-color:rgba(228,178,69,0.35)}
+.sbtn-on[data-v="needs_attention"] .sdot{transform:scale(1.25);box-shadow:0 0 20px rgba(228,178,69,0.5)}
+.sbtn-on[data-v="urgent"]{background:var(--red-bg);color:var(--red);border-color:rgba(220,111,100,0.35)}
+.sbtn-on[data-v="urgent"] .sdot{transform:scale(1.25);box-shadow:0 0 20px rgba(220,111,100,0.5)}
+.fields{overflow:hidden;max-height:0;opacity:0;transition:max-height 0.4s ease,opacity 0.3s}
+.fields-open{max-height:240px;opacity:1}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:11px;color:var(--dim);margin-bottom:6px;letter-spacing:0.3px}
+.fld textarea{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--surface);
+  padding:12px 14px;font-family:var(--sans);font-size:14px;font-weight:300;color:var(--text);
+  line-height:1.4;resize:none;outline:none;min-height:46px}
+.fld textarea:focus{border-color:var(--breath)}
+.fld textarea::placeholder{color:#444;font-style:italic}
+
+/* ── Bottom bar ── */
+.bbar{position:absolute;bottom:0;left:0;right:0;padding:12px 24px max(18px,env(safe-area-inset-bottom,18px));
+  background:linear-gradient(to top,var(--bg) 55%,transparent);z-index:10}
+.nbtn{width:100%;padding:17px;border:none;border-radius:var(--r);background:var(--breath);
+  color:var(--bg);font-family:var(--sans);font-size:15px;font-weight:500;cursor:pointer;
+  transition:all 0.2s;opacity:0.2;pointer-events:none}
+.nbtn-go{opacity:1;pointer-events:all}
+.nbtn:active{transform:scale(0.98)}
+
+/* ── Done screen ── */
+.done{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 0 40px;
+  opacity:0;transform:translateY(16px);animation:fadeUp 0.6s 0.15s ease forwards}
+@keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+.dring{position:relative;width:160px;height:160px;margin-bottom:28px}
+.dring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dring circle{fill:none;stroke-linecap:round}
+.dring-bg{stroke:var(--faint);stroke-width:4}
+.dring-fg{stroke:var(--breath);stroke-width:5.5;transition:stroke-dashoffset 2s cubic-bezier(0.4,0,0.2,1)}
+.dring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dring-num{font-family:var(--serif);font-size:52px;color:var(--cream);line-height:1}
+.dring-pct{font-family:var(--serif);font-size:18px;color:var(--dim)}
+.dring-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:2.5px;margin-top:2px}
+.dtitle{font-family:var(--serif);font-size:30px;font-weight:300;color:var(--cream);margin-bottom:6px}
+.dsub{color:var(--dim);font-size:14px;margin-bottom:20px;max-width:280px}
+.dstreak{display:flex;align-items:center;gap:8px;background:var(--gold-bg);
+  border:1px solid rgba(228,178,69,0.2);color:var(--gold);padding:12px 24px;
+  border-radius:var(--r);font-size:15px;font-weight:500;margin-bottom:24px}
+.dsum{width:100%;max-width:340px;text-align:left}
+.si{display:flex;align-items:center;justify-content:space-between;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px}
+.si:last-child{border-bottom:none}
+.sn{color:var(--text)}
+.sb{font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;text-transform:capitalize}
+.sb-good{background:var(--green-bg);color:var(--green)}
+.sb-needs_attention{background:var(--yellow-bg);color:var(--yellow)}
+.sb-urgent{background:var(--red-bg);color:var(--red)}
+.rbtn{margin-top:28px;padding:14px 32px;border:1.5px solid var(--faint);border-radius:var(--r);
+  background:transparent;font-family:var(--sans);font-size:14px;color:var(--dim);cursor:pointer;transition:all 0.2s}
+.rbtn:hover{border-color:var(--dim);color:var(--text)}
+</style>
+</head>
+<body>
+
+<!-- App shell: particles and pop are permanent, content div gets swapped -->
+<div id="app">
+  <div id="particles"></div>
+  <div id="pop">+1</div>
+  <div id="content"></div>
+</div>
+
+<script>
+/* ═══ AUDIO ═══ */
+var actx;
+function unlockAudio(){
+  if(!actx) try{actx=new(window.AudioContext||window.webkitAudioContext)}catch(e){}
+  if(actx&&actx.state==='suspended')actx.resume().catch(function(){});
+}
+function tone(f,d,v){
+  if(!actx)return;
+  try{var o=actx.createOscillator(),g=actx.createGain();o.type='sine';o.frequency.value=f;
+  g.gain.setValueAtTime(v,actx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+d);
+  o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+d)}catch(e){}
+}
+function chimeIn(){tone(396,0.9,0.12)}
+function chimeHold(){tone(528,0.6,0.10)}
+function chimeOut(){tone(330,1.1,0.12)}
+function chimeDone(){tone(528,0.5,0.12);setTimeout(function(){tone(660,0.7,0.10)},250);setTimeout(function(){tone(792,0.9,0.08)},500)}
+
+/* ═══ PARTICLES ═══ */
+(function(){
+  var c=document.getElementById('particles');
+  for(var i=0;i<20;i++){
+    var p=document.createElement('div');p.className='particle';
+    var s=5+Math.random()*7;
+    p.style.width=s+'px';p.style.height=s+'px';
+    p.style.left=(5+Math.random()*90)+'%';p.style.bottom='-5%';
+    p.style.animationDuration=(9+Math.random()*9)+'s';
+    p.style.animationDelay=(Math.random()*12)+'s';
+    c.appendChild(p);
+  }
+})();
+
+/* ═══ DATABASE ═══ */
+var db=new Dexie('BodyScanDB');
+db.version(1).stores({bodyParts:'++id, &name',entries:'++id, bodyPartId, date, [bodyPartId+date]'});
+db.version(2).stores({bodyParts:'++id, &name',entries:'++id, bodyPartId, date, [bodyPartId+date]',streaks:'&key'});
+
+var DEFAULTS=['Head','Eyes','Nose','Face','Neck','Shoulders','Back','Chest','Abdomen','Left Knee','Right Knee','Left Foot','Right Foot'];
+var T_IN=4,T_HOLD=4,T_OUT=4;
+var parts=[],ci=0,responses=[],streak=0,breathRAF=null;
+var today=new Date().toISOString().split('T')[0];
+
+/* ═══ BOOT ═══ */
+(async function(){
+  if(await db.bodyParts.count()===0)
+    await db.bodyParts.bulkAdd(DEFAULTS.map(function(n){return{name:n}}));
+  parts=await db.bodyParts.orderBy('id').toArray();
+  for(var i=0;i<parts.length;i++){
+    var ex=await db.entries.where('[bodyPartId+date]').equals([parts[i].id,today]).first();
+    responses.push({bodyPartId:parts[i].id,status:ex?ex.status:null,notes:ex?ex.notes:'',remediation:ex?ex.remediation:''});
+  }
+  try{
+    var s=await db.streaks.get('current');
+    if(s){var yd=new Date(Date.now()-864e5).toISOString().split('T')[0];
+      streak=(s.lastDate===today||s.lastDate===yd)?s.count:0;}
+  }catch(e){streak=0}
+  renderSlide();
+})();
+
+/* ═══ HELPERS ═══ */
+function el(id){return document.getElementById(id)}
+function pipHTML(){
+  var h='';
+  for(var j=0;j<parts.length;j++){
+    var cls='pip';
+    if(j<ci)cls+=' pip-done';
+    else if(j===ci)cls+=' pip-now';
+    h+='<span class="'+cls+'"></span>';
+  }
+  return h;
+}
+
+/* ═══ RENDER SLIDE ═══ */
+function renderSlide(){
+  if(breathRAF){cancelAnimationFrame(breathRAF);breathRAF=null}
+  var n=parts.length,part=parts[ci],resp=responses[ci];
+  el('content').innerHTML=
+    '<div class="topbar">'+
+      '<div class="topbar-left">'+
+        '<span class="topbar-title">Breathe &amp; scan</span>'+
+        '<span class="streak-pill">\uD83D\uDD25 '+(streak>0?streak+' day'+(streak>1?'s':''):'Day 1')+'</span>'+
+      '</div>'+
+      '<span class="counter">'+(ci+1)+' of '+n+'</span>'+
+    '</div>'+
+    '<div class="pips">'+pipHTML()+'</div>'+
+    '<div class="main" id="mainArea">'+
+      '<div class="bc" id="bc">'+
+        '<div id="orb"></div>'+
+        (resp.status?'':'<div class="tap-hint"></div>')+
+        '<div class="bc-center">'+
+          '<div class="bc-phase" id="phase">'+(resp.status?'':'Tap to breathe')+'</div>'+
+          '<div class="bc-num" id="num"></div>'+
+        '</div>'+
+      '</div>'+
+      '<h1 class="pname" id="pname">'+part.name+'</h1>'+
+      '<p class="pcue" id="cue">'+(resp.status?'':'Focus your attention here')+'</p>'+
+      '<div class="rpanel'+(resp.status?' rpanel-vis':'')+'" id="rpanel">'+
+        '<div class="srow">'+
+          '<button class="sbtn'+(resp.status==='good'?' sbtn-on':'')+'" data-v="good" onclick="pick(\'good\')"><span class="sdot"></span>Good</button>'+
+          '<button class="sbtn'+(resp.status==='needs_attention'?' sbtn-on':'')+'" data-v="needs_attention" onclick="pick(\'needs_attention\')"><span class="sdot"></span>Attention</button>'+
+          '<button class="sbtn'+(resp.status==='urgent'?' sbtn-on':'')+'" data-v="urgent" onclick="pick(\'urgent\')"><span class="sdot"></span>Urgent</button>'+
+        '</div>'+
+        '<div class="fields'+(resp.status?' fields-open':'')+'" id="fields">'+
+          '<div class="fld"><label>Notes</label><textarea id="notesIn" rows="2" placeholder="What did you notice?">'+resp.notes+'</textarea></div>'+
+          '<div class="fld" id="remFld" style="display:'+(resp.status&&resp.status!=='good'?'block':'none')+'"><label>What are you doing about it?</label><textarea id="remIn" rows="2" placeholder="Stretches, rest, see someone\u2026">'+resp.remediation+'</textarea></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="bbar">'+
+      '<button class="nbtn'+(resp.status?' nbtn-go':'')+'" id="nbtn" onclick="goNext()">'+(ci===n-1?'Finish':'Next')+'</button>'+
+    '</div>';
+
+  if(!resp.status){
+    el('bc').addEventListener('click',startBreath,{once:true});
+  }
+}
+
+/* ═══ BREATHING ═══ */
+function startBreath(){
+  unlockAudio();
+  var orb=el('orb'),phase=el('phase'),num=el('num'),cue=el('cue'),pname=el('pname');
+  var hint=document.querySelector('.tap-hint');
+  if(hint)hint.remove();
+
+  // Use setInterval — reliable in sandboxed iframes where rAF can stall
+  var totalSec=T_IN+T_HOLD+T_OUT;
+  var elapsed=0; // seconds elapsed
+
+  function updateOrb(sc,al,gl){
+    if(!orb)return;
+    orb.style.transform='scale('+sc+')';
+    orb.style.background='rgba(94,201,143,'+al+')';
+    orb.style.boxShadow='0 0 '+Math.round(50+gl*80)+'px rgba(94,201,143,'+(gl*0.4)+'), 0 0 '+Math.round(100+gl*120)+'px rgba(94,201,143,'+(gl*0.15)+')';
+  }
+
+  // Orb uses CSS transition for smooth interpolation between setInterval ticks
+  orb.style.transition='transform 1s ease, background 1s ease, box-shadow 1s ease';
+
+  function doTick(){
+    if(elapsed<T_IN){
+      // INHALE
+      var progress=elapsed/T_IN;
+      var scale=1+progress*0.5;
+      var alpha=0.18+progress*0.22;
+      updateOrb(scale.toFixed(2),alpha.toFixed(2),(progress).toFixed(2));
+      num.textContent=T_IN-elapsed;
+      if(elapsed===0){
+        phase.textContent='Breathe in\u2026';
+        cue.textContent='Send your breath toward your '+parts[ci].name.toLowerCase();
+        pname.classList.add('pname-pulse');
+        chimeIn();
+      }
+    }else if(elapsed<T_IN+T_HOLD){
+      // HOLD
+      updateOrb('1.50','0.40','1.00');
+      num.textContent=T_IN+T_HOLD-elapsed;
+      if(elapsed===T_IN){
+        phase.textContent='Hold \u2014 feel it';
+        cue.textContent='What do you notice there?';
+        pname.classList.remove('pname-pulse');
+        chimeHold();
+      }
+    }else if(elapsed<totalSec){
+      // EXHALE
+      var progress=(elapsed-T_IN-T_HOLD)/T_OUT;
+      var scale=1.5-progress*0.7;
+      var alpha=0.4-progress*0.3;
+      updateOrb(scale.toFixed(2),alpha.toFixed(2),(1-progress).toFixed(2));
+      num.textContent=totalSec-elapsed;
+      if(elapsed===T_IN+T_HOLD){
+        phase.textContent='Breathe out\u2026';
+        cue.textContent='Release. Now tell me how it feels.';
+        chimeOut();
+      }
+    }else{
+      // DONE
+      clearInterval(breathTimer);breathTimer=null;
+      updateOrb('0.80','0.10','0.00');
+      phase.textContent='';num.textContent='';cue.textContent='';
+      el('rpanel').classList.add('rpanel-vis');
+      setTimeout(function(){var m=el('mainArea');if(m)m.scrollTo({top:9999,behavior:'smooth'})},150);
+      return;
+    }
+    elapsed++;
+  }
+
+  doTick(); // first tick immediately
+  breathTimer=setInterval(doTick,1000);
+}
+
+/* ═══ STATUS ═══ */
+function pick(status){
+  responses[ci].status=status;
+  document.querySelectorAll('.sbtn').forEach(function(b){
+    if(b.dataset.v===status)b.classList.add('sbtn-on');
+    else b.classList.remove('sbtn-on');
+  });
+  el('fields').classList.add('fields-open');
+  el('remFld').style.display=status!=='good'?'block':'none';
+  el('nbtn').classList.add('nbtn-go');
+}
+
+/* ═══ NEXT / SAVE ═══ */
+async function goNext(){
+  var btn=el('nbtn');
+  if(!btn.classList.contains('nbtn-go'))return;
+  if(breathRAF){cancelAnimationFrame(breathRAF);breathRAF=null}
+
+  var nEl=el('notesIn'),rEl=el('remIn');
+  if(nEl)responses[ci].notes=nEl.value.trim();
+  if(rEl)responses[ci].remediation=rEl.value.trim();
+
+  var r=responses[ci];
+  var existing=await db.entries.where('[bodyPartId+date]').equals([r.bodyPartId,today]).first();
+  await db.entries.put({
+    id:existing?existing.id:undefined,
+    bodyPartId:r.bodyPartId,date:today,status:r.status,
+    notes:r.notes,remediation:r.remediation,
+    createdAt:existing?existing.createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  });
+
+  firePop();
+
+  if(ci<parts.length-1){ci++;setTimeout(renderSlide,350)}
+  else{await saveStreak();setTimeout(renderDone,450)}
+}
+
+function firePop(){
+  var el=el('pop');el.className='';void el.offsetWidth;el.className='fire';
+  // Note: #pop styles are on the ID, .fire just adds animation
+}
+
+/* ═══ STREAK ═══ */
+async function saveStreak(){
+  try{
+    var s=await db.streaks.get('current');
+    var yd=new Date(Date.now()-864e5).toISOString().split('T')[0];
+    var nc=1;
+    if(s){if(s.lastDate===today)nc=s.count;else if(s.lastDate===yd)nc=s.count+1}
+    await db.streaks.put({key:'current',count:nc,lastDate:today});streak=nc;
+  }catch(e){streak=Math.max(streak,1)}
+}
+
+/* ═══ DONE ═══ */
+function renderDone(){
+  chimeDone();
+  var total=parts.length;
+  var goodCount=responses.filter(function(r){return r.status==='good'}).length;
+  var pct=Math.round((goodCount/total)*100);
+  var C=2*Math.PI*68;var offset=C-(pct/100)*C;
+  var uc=responses.filter(function(r){return r.status==='urgent'}).length;
+  var ac=responses.filter(function(r){return r.status==='needs_attention'}).length;
+  var msg="Your body feels good today. Keep listening to it.";
+  if(uc>0)msg=uc+' area'+(uc>1?'s':'')+' need'+(uc===1?'s':'')+' care. Be gentle with yourself.';
+  else if(ac>0)msg='Mostly good \u2014 '+ac+' area'+(ac>1?'s':'')+' to keep an eye on.';
+
+  var sum='';
+  for(var i=0;i<responses.length;i++){
+    var lb=responses[i].status==='needs_attention'?'attention':responses[i].status;
+    sum+='<div class="si"><span class="sn">'+parts[i].name+'</span><span class="sb sb-'+responses[i].status+'">'+lb+'</span></div>';
+  }
+
+  var allDone='';for(var j=0;j<parts.length;j++)allDone+='<span class="pip pip-done"></span>';
+
+  el('content').innerHTML=
+    '<div class="topbar"><div class="topbar-left"><span class="topbar-title">Breathe &amp; scan</span></div><span class="counter">Complete</span></div>'+
+    '<div class="pips">'+allDone+'</div>'+
+    '<div class="main"><div class="done">'+
+      '<div class="dring"><svg viewBox="0 0 150 150"><circle class="dring-bg" cx="75" cy="75" r="68"/><circle class="dring-fg" cx="75" cy="75" r="68" stroke-dasharray="'+C+'" stroke-dashoffset="'+C+'" id="arc"/></svg>'+
+        '<div class="dring-center"><span class="dring-num">'+pct+'</span><span class="dring-pct">%</span><span class="dring-lbl">wellness</span></div></div>'+
+      '<h1 class="dtitle">Scan complete</h1><p class="dsub">'+msg+'</p>'+
+      '<div class="dstreak">\uD83D\uDD25 '+streak+' day streak \u2014 '+(streak<3?'just getting started':streak<7?'building momentum':'incredible consistency')+'</div>'+
+      '<div class="dsum">'+sum+'</div>'+
+      '<button class="rbtn" onclick="restart()">Scan again</button>'+
+    '</div></div>';
+
+  setTimeout(function(){var arc=el('arc');if(arc)arc.style.strokeDashoffset=offset},500);
+}
+
+function restart(){
+  ci=0;responses=parts.map(function(p){return{bodyPartId:p.id,status:null,notes:'',remediation:''}});
+  renderSlide();
+}
+</script>
+</body>
+</html>
