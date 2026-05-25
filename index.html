@@ -237,7 +237,7 @@ body{font-family:var(--sans);font-weight:300;font-size:14px;line-height:1.5}
 .ob-slide.ob-exit{opacity:0;transform:translateY(-20px)}
 
 .ob-sanskrit{font-size:28px;color:var(--star);line-height:1.6;margin-bottom:16px;opacity:0;animation:obFadeIn 1.5s 0.3s ease forwards}
-.ob-translit{font-family:var(--serif);font-size:16px;font-style:italic;color:var(--dim);margin-bottom:8px;opacity:0;animation:obFadeIn 1.2s 1.2s ease forwards}
+.ob-translit{font-family:var(--serif);font-size:16px;font-style:italic;color:rgba(255,255,255,0.6);margin-bottom:8px;opacity:0;animation:obFadeIn 1.2s 1.2s ease forwards}
 .ob-meaning{font-family:var(--serif);font-size:18px;font-style:italic;color:var(--bright);opacity:0;animation:obFadeIn 1.2s 2s ease forwards}
 @keyframes obFadeIn{to{opacity:1}}
 
@@ -248,7 +248,7 @@ body{font-family:var(--sans);font-weight:300;font-size:14px;line-height:1.5}
 .ob-star-appear{animation:obStarPop 0.4s ease forwards}
 @keyframes obStarPop{0%{opacity:0;r:0}100%{opacity:1}}
 
-.ob-copy{font-family:var(--serif);font-size:17px;font-style:italic;color:var(--text);line-height:1.7;max-width:300px;opacity:0;animation:obFadeIn 1s 0.5s ease forwards;font-weight:300}
+.ob-copy{font-family:var(--serif);font-size:17px;font-style:italic;color:var(--cream);line-height:1.7;max-width:300px;opacity:0;animation:obFadeIn 1s 0.5s ease forwards;font-weight:300}
 
 .ob-neb{width:120px;height:120px;border-radius:50%;
   background:radial-gradient(circle at 40% 35%,rgba(141,196,255,0.5),rgba(110,164,232,0.2) 50%,transparent 80%);
@@ -258,7 +258,7 @@ body{font-family:var(--sans);font-weight:300;font-size:14px;line-height:1.5}
 @keyframes obNebPulse{0%,100%{transform:scale(1);opacity:0.8}50%{transform:scale(1.05);opacity:1}}
 @keyframes obNebBreathe{0%{transform:scale(0.8);opacity:0.5}50%{transform:scale(1.4);opacity:1;box-shadow:0 0 60px rgba(141,196,255,0.5),0 0 120px rgba(110,164,232,0.2)}100%{transform:scale(1);opacity:0.8}}
 
-.ob-copy2{font-family:var(--serif);font-size:16px;font-style:italic;color:var(--text);line-height:1.7;max-width:280px;font-weight:300}
+.ob-copy2{font-family:var(--serif);font-size:16px;font-style:italic;color:var(--cream);line-height:1.7;max-width:280px;font-weight:300}
 
 .ob-constellation-done{width:200px;height:290px;margin-bottom:16px}
 .ob-constellation-done .ob-body-line{animation:obDrawLine 1.5s ease forwards}
@@ -270,7 +270,13 @@ body{font-family:var(--sans);font-weight:300;font-size:14px;line-height:1.5}
   text-transform:uppercase;cursor:pointer;opacity:0;animation:obFadeIn 0.8s 1s ease forwards}
 .ob-begin-btn:active{transform:scale(0.97)}
 
-.ob-tap{position:absolute;bottom:40px;font-size:11px;color:var(--faint);letter-spacing:2px;text-transform:uppercase;opacity:0;animation:obFadeIn 0.8s 3s ease forwards}
+.ob-tap{position:absolute;bottom:40px;font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;opacity:0;animation:obFadeIn 0.8s 3s ease forwards}
+
+/* Gate screen — tap to unlock audio */
+.ob-gate{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;cursor:pointer}
+.ob-gate-star{font-size:40px;color:var(--bright);text-shadow:0 0 30px var(--bright-glow),0 0 60px var(--nebula-glow);animation:obGatePulse 3s ease-in-out infinite}
+@keyframes obGatePulse{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.ob-gate-text{margin-top:24px;font-size:12px;color:rgba(255,255,255,0.6);letter-spacing:3px;text-transform:uppercase;opacity:0;animation:obFadeIn 1s 1s ease forwards}
 </style>
 </head>
 <body>
@@ -364,6 +370,9 @@ var CONST_LINES=[['Head','Eyes'],['Eyes','Nose'],['Nose','Face'],['Face','Neck']
   try{var s=await db.streaks.get('current');if(s){var yd=new Date(Date.now()-864e5).toISOString().split('T')[0];streak=(s.lastDate===today||s.lastDate===yd)?s.count:0;}}catch(e){streak=0}
   await updateBadge();
 
+  // Clear onboarded flag to show onboarding (remove this line for production)
+  try{await db.streaks.delete('onboarded')}catch(e){}
+
   // Check if onboarding needed
   var onboarded=false;
   try{var ob=await db.streaks.get('onboarded');if(ob&&ob.count===1)onboarded=true;}catch(e){}
@@ -374,6 +383,12 @@ var CONST_LINES=[['Head','Eyes'],['Eyes','Nose'],['Nose','Face'],['Face','Neck']
     showToday();
   }
 })();
+
+/* Reset onboarding — call from browser console: resetOnboarding() */
+async function resetOnboarding(){
+  try{await db.streaks.delete('onboarded')}catch(e){}
+  location.reload();
+}
 
 /* ═══ NAVIGATION ═══ */
 function navigate(s){if(breathTimer){clearInterval(breathTimer);breathTimer=null}currentScreen=s;G('nav-today').className='nav-item'+(s==='today'?' nav-on':'');G('nav-history').className='nav-item'+(s==='history'?' nav-on':'');G('nav-flags').className='nav-item'+(s==='flags'?' nav-on':'');if(s==='today')showToday();else if(s==='history')showHistory();else showFlags()}
@@ -567,17 +582,15 @@ function fD(s){var d=new Date(s+'T12:00:00'),m=['Jan','Feb','Mar','Apr','May','J
 /* ══════════════════════════════════════════════════════════════
    ONBOARDING
    ══════════════════════════════════════════════════════════════ */
-var obSlide=0;
+var obSlide=-1;
+var obReady=false;
 
 function obSvgBody(idPrefix,showStars){
-  // Build constellation SVG
   var h='';
-  // Lines
   for(var i=0;i<CONST_LINES.length;i++){
     var a=BZ[CONST_LINES[i][0]],b=BZ[CONST_LINES[i][1]];
     if(a&&b) h+='<line class="ob-body-line" x1="'+a.cx+'" y1="'+a.cy+'" x2="'+b.cx+'" y2="'+b.cy+'" style="animation-delay:'+(i*0.12)+'s"/>';
   }
-  // Stars at each zone
   for(var i=0;i<DEFAULTS.length;i++){
     var z=BZ[DEFAULTS[i]];
     if(!z) continue;
@@ -591,20 +604,52 @@ function obSvgBody(idPrefix,showStars){
 function startOnboarding(){
   var ob=G('onboarding');
   ob.style.display='flex';
-  obSlide=0;
-  renderObSlide();
+  obSlide=-1;
+  obReady=false;
+  renderObContent();
 
-  // Tap anywhere to advance (except on the last slide where the button handles it)
-  ob.addEventListener('click',function(e){
-    if(e.target.classList.contains('ob-begin-btn')) return;
-    advanceOb();
-  });
+  // Single click handler for the entire onboarding
+  ob.addEventListener('click',handleObClick);
 }
 
-function renderObSlide(){
+function handleObClick(e){
+  // Don't advance if Begin button was clicked (it has its own handler)
+  if(e.target.classList&&e.target.classList.contains('ob-begin-btn')) return;
+  var btn=e.target.closest&&e.target.closest('.ob-begin-btn');
+  if(btn) return;
+
+  if(obSlide===-1){
+    // Gate screen tap — unlock audio, start music, advance
+    unlockAudio();
+    startAmbient();
+    obReady=false;
+    obSlide=0;
+    renderObContent();
+    // Small delay before accepting next tap to prevent skip
+    setTimeout(function(){obReady=true},1200);
+  }else if(obSlide<3&&obReady){
+    // Advance to next slide
+    obReady=false;
+    var current=G('ob-'+obSlide);
+    if(current){current.classList.remove('ob-active');current.classList.add('ob-exit')}
+    obSlide++;
+    setTimeout(function(){
+      renderObContent();
+      setTimeout(function(){obReady=true},800);
+    },400);
+  }
+  // Slide 3: do nothing on general tap, wait for Begin button
+}
+
+function renderObContent(){
   var ob=G('onboarding');
 
-  // Build all 4 slides, only the active one is visible
+  if(obSlide===-1){
+    // Gate screen
+    ob.innerHTML='<div class="ob-gate"><div class="ob-gate-star">\u2729</div><div class="ob-gate-text">tap to begin</div></div>';
+    return;
+  }
+
   var slides='';
 
   // Slide 0: The Shloka
@@ -623,7 +668,7 @@ function renderObSlide(){
 
   // Slide 2: The Breath
   slides+='<div class="ob-slide'+(obSlide===2?' ob-active':'')+'" id="ob-2">'+
-    '<div class="ob-neb'+(obSlide===2?' ob-neb-go':'')+'"></div>'+
+    '<div class="ob-neb ob-neb-go"></div>'+
     '<div class="ob-copy2">Each day, breathe into each star. Four seconds. Feel what it\u2019s telling you. Then record what you notice.</div>'+
   '</div>';
 
@@ -637,39 +682,93 @@ function renderObSlide(){
   ob.innerHTML=slides;
 }
 
-function advanceOb(){
-  if(obSlide>=3) return; // last slide, wait for button
-  var current=G('ob-'+obSlide);
-  if(current){
-    current.classList.remove('ob-active');
-    current.classList.add('ob-exit');
-  }
-  obSlide++;
-  setTimeout(function(){
-    renderObSlide();
-    // Trigger nebula animation on slide 2
-    if(obSlide===2){
-      setTimeout(function(){
-        var neb=document.querySelector('.ob-neb');
-        if(neb) neb.classList.add('ob-neb-go');
-      },100);
-    }
-  },400);
-}
-
 async function finishOnboarding(){
-  // Save onboarded flag
+  stopAmbient();
+  // Remove click handler so it doesn't interfere with main app
+  G('onboarding').removeEventListener('click',handleObClick);
   await db.streaks.put({key:'onboarded',count:1,lastDate:today});
-  // Fade out onboarding
   var ob=G('onboarding');
   ob.style.transition='opacity 0.6s ease';
   ob.style.opacity='0';
   setTimeout(function(){
     ob.style.display='none';
+    ob.innerHTML='';
     G('nav').style.display='flex';
     showToday();
   },600);
 }
+
+var ambientNodes=null;
+
+function startAmbient(){
+  unlockAudio();
+  if(!actx||actx.state!=='running') return;
+  if(ambientNodes) return; // already playing
+
+  // Create a layered space drone:
+  // - Deep sub bass (very low, felt more than heard)
+  // - Warm pad (two detuned oscillators for shimmer)  
+  // - High ethereal tone (barely there, creates space)
+  // - Slow LFO modulating volume for organic movement
+
+  var master=actx.createGain();
+  master.gain.setValueAtTime(0,actx.currentTime);
+  master.gain.linearRampToValueAtTime(0.12,actx.currentTime+3); // slow fade in
+  master.connect(actx.destination);
+
+  // Sub bass — 55Hz (A1), very quiet
+  var sub=actx.createOscillator();
+  var subG=actx.createGain();
+  sub.type='sine';sub.frequency.value=55;
+  subG.gain.value=0.4;
+  sub.connect(subG);subG.connect(master);sub.start();
+
+  // Warm pad — two detuned sines for chorus effect
+  var pad1=actx.createOscillator();
+  var pad2=actx.createOscillator();
+  var padG=actx.createGain();
+  pad1.type='sine';pad1.frequency.value=220; // A3
+  pad2.type='sine';pad2.frequency.value=222.5; // slightly sharp — creates slow beating
+  padG.gain.value=0.3;
+  pad1.connect(padG);pad2.connect(padG);padG.connect(master);
+  pad1.start();pad2.start();
+
+  // Fifth harmony — adds space
+  var fifth=actx.createOscillator();
+  var fifthG=actx.createGain();
+  fifth.type='sine';fifth.frequency.value=330; // E4 (perfect fifth above A)
+  fifthG.gain.value=0.15;
+  fifth.connect(fifthG);fifthG.connect(master);fifth.start();
+
+  // High ethereal shimmer
+  var high=actx.createOscillator();
+  var highG=actx.createGain();
+  high.type='sine';high.frequency.value=880; // A5
+  highG.gain.value=0.04; // barely audible
+  high.connect(highG);highG.connect(master);high.start();
+
+  // Slow volume LFO — makes it breathe
+  var lfo=actx.createOscillator();
+  var lfoG=actx.createGain();
+  lfo.type='sine';lfo.frequency.value=0.08; // one cycle every ~12 seconds
+  lfoG.gain.value=0.03;
+  lfo.connect(lfoG);lfoG.connect(master.gain);lfo.start();
+
+  ambientNodes={master:master,oscs:[sub,pad1,pad2,fifth,high,lfo]};
+}
+
+function stopAmbient(){
+  if(!ambientNodes||!actx) return;
+  var m=ambientNodes.master;
+  // Gentle 2-second fade out
+  m.gain.linearRampToValueAtTime(0,actx.currentTime+2);
+  var oscs=ambientNodes.oscs;
+  setTimeout(function(){
+    for(var i=0;i<oscs.length;i++){try{oscs[i].stop()}catch(e){}}
+    ambientNodes=null;
+  },2500);
+}
+
 </script>
 </body>
 </html>
